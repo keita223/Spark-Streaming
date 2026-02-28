@@ -1,47 +1,45 @@
-from kafka import KafkaProducer
-import json
+import sys
+import os
 import time
-import random
+from kafka import KafkaProducer
+
+# Ajoute la racine du projet au path pour importer utils.schema
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.schema import csv_to_json_records
+
 
 def main():
-    # Create Kafka producer
     producer = KafkaProducer(
         bootstrap_servers='localhost:9092',
-        value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        value_serializer=lambda v: v.encode('utf-8')
     )
-    
+
     topic = 'test-topic'
-    
-    print(f"📤 Starting to send messages to topic: {topic}")
-    
-    messages = [
-        "This is an important message",
-        "This is a regular message",
-        "Another important update",
-        "Just a normal event",
-        "Critical important alert",
-        "Random data here",
-        "Important notification received"
-    ]
-    
+    csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "transactions.csv")
+
+    print("=" * 60)
+    print(f"Chargement des transactions depuis : {csv_path}")
+    records = csv_to_json_records(csv_path)
+    print(f"{len(records)} transactions chargées.")
+    print(f"Envoi vers le topic Kafka : {topic}")
+    print("=" * 60)
+
     try:
         counter = 0
         while True:
-            # Send a random message
-            message = random.choice(messages)
-            producer.send(topic, value=message)
-            
+            # Parcourt les transactions en boucle
+            record = records[counter % len(records)]
+            producer.send(topic, value=record)
             counter += 1
-            print(f"✅ Sent message {counter}: {message}")
-            
-            # Wait 2 seconds before sending next message
+            print(f"[#{counter}] Envoyé : {record}")
             time.sleep(2)
-            
+
     except KeyboardInterrupt:
-        print("\n⏹️  Stopping producer...")
+        print("\nArrêt du producer...")
     finally:
         producer.close()
-        print("✅ Producer closed.")
+        print("Producer fermé.")
+
 
 if __name__ == "__main__":
     main()
